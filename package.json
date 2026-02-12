@@ -5,14 +5,16 @@
   "keywords": [],
   "main": "src/index.tsx",
   "dependencies": {
+    "@firebase/database": "1.1.0",
+    "@firebase/firestore": "4.11.0",
+    "firebase": "12.9.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.1.0",
+    "jspdf-html2canvas": "1.6.0",
+    "lucide-react": "0.563.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-scripts": "^5.0.0",
-    "lucide-react": "0.563.0",
-    "firebase": "12.9.0",
-    "@firebase/firestore": "4.11.0",
-    "@firebase/database": "1.1.0",
-    "jspdf-html2canvas": "1.6.0"
+    "react-scripts": "^5.0.0"
   },
   "devDependencies": {
     "@types/react": "19.0.0",
