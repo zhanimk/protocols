@@ -7,9 +7,9 @@ import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import ParticipantForm from "./components/ParticipantForm";
 import ParticipantList from "./components/ParticipantList";
 import TournamentManager from "./components/Brackets/TournamentManager";
-
+import "./styles.css"; // Осы жол міндетті түрде болуы керек
 // PDF ЛОГИКАСЫ
-import { exportMultiPDF } from "./components/Utils/PdfExport";
+import { exportToPDF } from "./components/Utils/PdfExport";
 
 const App = () => {
   // --- 1. STATE (ДЕРЕКТЕР) ---
@@ -65,39 +65,29 @@ const App = () => {
         minHeight: "100vh",
       }}
     >
-      {/* --- HEADER (TOP BAR) --- */}
-      <div style={styles.topBar}>
-        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-          <h2 style={{ margin: 0, letterSpacing: "1px" }}>
-            ASTANA JUDO LEAGUE
-          </h2>
-          <span
-            style={{
-              background: "#d32f2f",
-              padding: "2px 8px",
-              borderRadius: "4px",
-              fontSize: "12px",
-              fontWeight: "bold",
-            }}
-          >
-            LIVE
-          </span>
+      {/* --- HEADER (ULTRA MODERN & PREMIUM) --- */}
+      <header className="header-card">
+        <div className="header-brand">
+          <div className="live-tag">
+            <span className="pulse-dot"></span> LIVE
+          </div>
+          <h1>ASTANA JUDO LEAGUE</h1>
+          <p>Official Tournament Management System 2026</p>
         </div>
 
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div className="header-actions">
           <button
+            className={`btn-glass ${showRegistration ? "active" : ""}`}
             onClick={() => setShowRegistration(!showRegistration)}
-            style={styles.secondaryBtn}
           >
-            {showRegistration ? "Тіркеуді жасыру" : "👥 Қатысушылар & Тіркеу"}
+            {showRegistration ? "✖ Жасыру" : "👥 Тіркеу & Тізім"}
           </button>
 
-          <button onClick={handleDownloadAll} style={styles.downloadAllBtn}>
-            📑 БАРЛЫҒЫН ЖҮКТЕУ (PDF)
+          <button className="btn-glow" onClick={handleDownloadAll}>
+            📑 PDF ЖҮКТЕУ
           </button>
         </div>
-      </div>
-
+      </header>
       {/* --- ТІРКЕУ БӨЛІМІ (Жасырын/Ашық) --- */}
       {showRegistration && (
         <div style={styles.registrationArea}>

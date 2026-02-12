@@ -1,47 +1,49 @@
 import React, { useState, useMemo } from "react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-// ЕРЕЖЕЛЕРДІ ИМПОРТТАУ
 import { JUDO_RULES, getJudoCategory } from "../rules";
 
 const ParticipantForm = ({ db }) => {
   const [form, setForm] = useState({
     name: "",
     club: "",
+    gender: "M", // M - ұлдар, F - қыздар
     year: "2013",
     weight: "",
   });
 
-  // Салмақтарды есептеу
+  // Жынысы мен жылына қарай салмақтарды сүзу
   const availableWeights = useMemo(() => {
     const y = parseInt(form.year);
-    // Топты табу (object keys арқылы)
-    const groupKey = Object.keys(JUDO_RULES).find((key) => {
-      const [start, end] = key.split("-").map(Number);
-      return y >= start && y <= end;
-    });
+    const rules = form.gender === "F" ? JUDO_RULES.FEMALE : JUDO_RULES.MALE;
 
-    if (!groupKey) return [];
-    const rule = JUDO_RULES[groupKey];
-    const standardWeights = rule.weights.map((w) => `-${w}kg`);
-    return [...standardWeights, rule.plus];
-  }, [form.year]);
+    let group = null;
+    for (const key in rules) {
+      const parts = key.split("-").map(Number);
+      const start = parts[0];
+      const end = parts[parts.length - 1];
+      if (y >= start && y <= end) {
+        group = rules[key];
+        break;
+      }
+    }
+
+    if (!group) return [];
+    return [...group.weights.map((w) => `${w}`), group.plus];
+  }, [form.year, form.gender]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.club || !form.weight) return alert("Толтырыңыз!");
 
-    // Категорияны алу
-    const { weightCat } = getJudoCategory(form.year, form.weight);
+    const { weightCat } = getJudoCategory(form.gender, form.year, form.weight);
 
     try {
       await addDoc(collection(db, "competitors"), {
-        name: form.name,
-        club: form.club,
-        year: form.year,
-        weightCat, // Дайын категория
+        ...form,
+        weightCat,
         createdAt: serverTimestamp(),
       });
-      alert(`✅ ${form.name} қосылды!`);
+      alert(`✅ ${form.name} сәтті тіркелді!`);
       setForm((prev) => ({ ...prev, name: "", weight: "" }));
     } catch (error) {
       console.error(error);
@@ -49,13 +51,8 @@ const ParticipantForm = ({ db }) => {
   };
 
   return (
-    <div
-      className="form-card"
-      style={{ padding: "0", border: "none", boxShadow: "none" }}
-    >
+    <div className="form-content animate-fade-in">
       <form onSubmit={handleSubmit} className="form-grid">
-        {/* ... (Инпуттар сол қалпы) ... */}
-        {/* Кодтың қалған бөлігі өзгеріссіз қалады, себеби тек логика бөлігін өзгерттік */}
         <div className="input-group">
           <label>Аты-жөні</label>
           <input
@@ -65,6 +62,38 @@ const ParticipantForm = ({ db }) => {
             required
           />
         </div>
+
+        <div className="input-group">
+          <label>Жынысы</label>
+          <select
+            className="styled-input"
+            value={form.gender}
+            onChange={(e) =>
+              setForm({ ...form, gender: e.target.value, weight: "" })
+            }
+          >
+            <option value="M">Ұлдар (Boys)</option>
+            <option value="F">Қыздар (Girls)</option>
+          </select>
+        </div>
+
+        <div className="input-group">
+          <label>Туған жылы</label>
+          <select
+            className="styled-input"
+            value={form.year}
+            onChange={(e) =>
+              setForm({ ...form, year: e.target.value, weight: "" })
+            }
+          >
+            {[2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019].map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="input-group">
           <label>Клуб</label>
           <input
@@ -74,22 +103,7 @@ const ParticipantForm = ({ db }) => {
             required
           />
         </div>
-        <div className="input-group">
-          <label>Жыл</label>
-          <select
-            className="styled-input"
-            value={form.year}
-            onChange={(e) =>
-              setForm({ ...form, year: e.target.value, weight: "" })
-            }
-          >
-            {[2011, 2012, 2013, 2014, 2015, 2016].map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </div>
+
         <div className="input-group">
           <label>Салмақ</label>
           <select
@@ -97,18 +111,17 @@ const ParticipantForm = ({ db }) => {
             value={form.weight}
             onChange={(e) => setForm({ ...form, weight: e.target.value })}
             required
-            disabled={availableWeights.length === 0}
           >
             <option value="">Таңдаңыз...</option>
             {availableWeights.map((w) => (
               <option key={w} value={w}>
-                {w}
+                {w.includes("+") ? w : `${w} кг`}
               </option>
             ))}
           </select>
         </div>
+
         <div className="input-group">
-          <label style={{ visibility: "hidden" }}>Btn</label>
           <button type="submit" className="submit-btn">
             ТІРКЕУ
           </button>
