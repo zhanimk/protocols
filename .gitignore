@@ -1,2 +1,4 @@
 node_modules
-.vercel
+.vercelbuild/
+dist/
+.DS_Store
