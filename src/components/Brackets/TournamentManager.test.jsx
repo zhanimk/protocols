@@ -7,6 +7,17 @@ jest.mock("../Utils/PdfExport", () => ({
   exportToPDF: jest.fn(() => Promise.resolve()),
 }));
 
+jest.mock("firebase/firestore", () => ({
+  getFirestore: jest.fn(() => ({})),
+  doc: jest.fn(() => ({})),
+  onSnapshot: jest.fn((_, cb) => {
+    cb({ exists: () => false, data: () => ({}) });
+    return () => {};
+  }),
+  serverTimestamp: jest.fn(() => "mock-ts"),
+  setDoc: jest.fn(() => Promise.resolve()),
+}));
+
 const participants = Array.from({ length: 8 }, (_, i) => ({
   id: `${i + 1}`,
   name: `P${i + 1}`,

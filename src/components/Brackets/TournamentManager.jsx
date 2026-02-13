@@ -1,22 +1,85 @@
-import React, { useEffect, useMemo, useState, useId } from "react";
+import React, { useEffect, useMemo, useRef, useState, useId } from "react";
+import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "../../firebase";
 import Olympic32 from "../Systems/Olympic32";
 import Olympic16 from "../Systems/Olympic16";
 import Olympic8 from "../Systems/Olympic8";
 import RoundRobin from "../Systems/RoundRobin";
 import { getBracketSize } from "../Utils/DrawLogic";
 import { exportToPDF } from "../Utils/PdfExport";
+import {
+  buildResultDocId,
+  hydrateResults,
+  serializeResults,
+} from "../Utils/resultPersistence";
+
+const SAVE_DELAY_MS = 350;
 
 const TournamentManager = ({ participants = [], category, isPrintMode = false }) => {
   const [results, setResults] = useState({});
+  const [storedResults, setStoredResults] = useState({});
 
   const rawId = useId();
   const instanceId = useMemo(() => rawId.replace(/[:]/g, ""), [rawId]);
   const printAreaId = `${instanceId}-print-area`;
   const controlsId = `${instanceId}-controls`;
 
+  const docId = useMemo(() => buildResultDocId(category), [category]);
+  const hasLoadedRemote = useRef(false);
+  const lastSyncedSerialized = useRef("{}");
+
   useEffect(() => {
     setResults({});
-  }, [category, participants]);
+    setStoredResults({});
+    hasLoadedRemote.current = false;
+    lastSyncedSerialized.current = "{}";
+
+    if (isPrintMode || !category || !db) {
+      hasLoadedRemote.current = true;
+      return;
+    }
+
+    const ref = doc(db, "tournamentResults", docId);
+
+    const unsub = onSnapshot(ref, (snapshot) => {
+      const rawResults = snapshot.exists() ? snapshot.data()?.results || {} : {};
+      const serializedRaw = JSON.stringify(rawResults);
+
+      hasLoadedRemote.current = true;
+      lastSyncedSerialized.current = serializedRaw;
+      setStoredResults(rawResults);
+    });
+
+    return unsub;
+  }, [category, docId, isPrintMode]);
+
+  useEffect(() => {
+    if (isPrintMode || !category) return;
+    setResults(hydrateResults(storedResults, participants));
+  }, [category, isPrintMode, participants, storedResults]);
+
+  useEffect(() => {
+    if (isPrintMode || !category || !db || !hasLoadedRemote.current) return;
+
+    const serialized = JSON.stringify(serializeResults(results));
+    if (serialized === lastSyncedSerialized.current) return;
+
+    const timeout = setTimeout(async () => {
+      await setDoc(
+        doc(db, "tournamentResults", docId),
+        {
+          category,
+          results: JSON.parse(serialized),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      lastSyncedSerialized.current = serialized;
+    }, SAVE_DELAY_MS);
+
+    return () => clearTimeout(timeout);
+  }, [category, docId, isPrintMode, results]);
 
   const size = getBracketSize(participants.length);
 
