@@ -1,13 +1,42 @@
 import React, { useMemo } from "react";
-import { getRoundRobinFightOrder } from "../Utils/roundRobin";
 
 const RoundRobin = ({ participants = [], category, ageGroup }) => {
   const fightOrder = useMemo(() => {
-    return getRoundRobinFightOrder(participants.length);
+    const count = participants.length;
+    const orders = {
+      2: [[1, 2]],
+      3: [
+        [1, 2],
+        [2, 3],
+        [1, 3],
+      ],
+      4: [
+        [1, 2],
+        [3, 4],
+        [1, 3],
+        [2, 4],
+        [1, 4],
+        [2, 3],
+      ],
+      5: [
+        [1, 2],
+        [3, 4],
+        [5, 1],
+        [2, 3],
+        [4, 5],
+        [1, 3],
+        [2, 4],
+        [3, 5],
+        [1, 4],
+        [2, 5],
+      ],
+    };
+    return orders[count] || [];
   }, [participants.length]);
 
   return (
     <div
+      id="print-area"
       style={{
         background: "#fff",
         color: "#000",
@@ -273,7 +302,7 @@ const RoundRobin = ({ participants = [], category, ageGroup }) => {
                   {pair[0]}
                 </div>
                 <div style={{ fontWeight: "1000", fontSize: "11px" }}>
-                  {participants[pair[0] - 1]?.name?.split(" ")[0]?.toUpperCase() || ""}
+                  {participants[pair[0] - 1]?.name.split(" ")[0].toUpperCase()}
                 </div>
               </div>
               <div
@@ -311,7 +340,7 @@ const RoundRobin = ({ participants = [], category, ageGroup }) => {
                   {pair[1]}
                 </div>
                 <div style={{ fontWeight: "1000", fontSize: "11px" }}>
-                  {participants[pair[1] - 1]?.name?.split(" ")[0]?.toUpperCase() || ""}
+                  {participants[pair[1] - 1]?.name.split(" ")[0].toUpperCase()}
                 </div>
               </div>
               <div

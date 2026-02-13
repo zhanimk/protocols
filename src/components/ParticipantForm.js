@@ -1,133 +1,174 @@
-import React, { useMemo, useState } from "react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { getJudoCategory, getRulesByGender } from "../rules";
+import React, { useState, useMemo } from "react";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { JUDO_RULES, getJudoCategory } from "../rules";
 
 const ParticipantForm = ({ db }) => {
   const [form, setForm] = useState({
     name: "",
     club: "",
     gender: "M",
-    year: "2013",
+    groupKey: "2013-2014", // Значение по умолчанию
     weight: "",
   });
 
+  // Получаем список весов только для выбранной группы
   const availableWeights = useMemo(() => {
-    const rules = getRulesByGender(form.gender);
-    const y = parseInt(form.year, 10);
-
-    let group = null;
-    for (const key in rules) {
-      const parts = key.split("-").map(Number);
-      const start = parts[0];
-      const end = parts[parts.length - 1];
-      if (y >= start && y <= end) {
-        group = rules[key];
-        break;
-      }
-    }
+    const rulesSet = form.gender === "F" ? JUDO_RULES.FEMALE : JUDO_RULES.MALE;
+    const group = rulesSet[form.groupKey];
 
     if (!group) return [];
-    return [...group.weights.map((w) => `${w}`), group.plus];
-  }, [form.year, form.gender]);
+
+    const list = group.weights.map((w) => ({ value: w, label: `-${w} кг` }));
+    if (group.plus) list.push({ value: group.plus, label: `${group.plus} кг` });
+    return list;
+  }, [form.groupKey, form.gender]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.club || !form.weight) return alert("Толтырыңыз!");
 
-    const { weightCat } = getJudoCategory(form.gender, form.year, form.weight);
+    // Получаем стандартизированное имя категории из rules.js
+    const { weightCat } = getJudoCategory(
+      form.gender,
+      form.groupKey,
+      form.weight
+    );
 
     try {
       await addDoc(collection(db, "competitors"), {
         ...form,
-        weightCat,
+        weightCat: weightCat, // Записываем "-38кг (Ұлдар 2011-2012)"
         createdAt: serverTimestamp(),
       });
       alert(`✅ ${form.name} сәтті тіркелді!`);
-      setForm((prev) => ({ ...prev, name: "", weight: "" }));
+      setForm({ ...form, name: "", weight: "" }); // Очищаем только имя и вес
     } catch (error) {
       console.error(error);
+      alert("Қате орын алды!");
     }
   };
 
   return (
-    <div className="form-content animate-fade-in">
-      <form onSubmit={handleSubmit} className="form-grid">
-        <div className="input-group">
-          <label>Аты-жөні</label>
+    <div style={styles.card}>
+      <form onSubmit={handleSubmit} style={styles.formGrid}>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Аты-жөні (ФИО)</label>
           <input
-            className="styled-input"
+            style={styles.input}
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Спортшының аты"
             required
           />
         </div>
 
-        <div className="input-group">
-          <label>Жынысы</label>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Жынысы</label>
           <select
-            className="styled-input"
+            style={styles.input}
             value={form.gender}
-            onChange={(e) =>
-              setForm({ ...form, gender: e.target.value, weight: "" })
-            }
+            onChange={(e) => {
+              const newGender = e.target.value;
+              // Устанавливаем первую доступную группу для выбранного пола
+              const defaultKey =
+                newGender === "F" ? "2011-2012-2013" : "2011-2012";
+              setForm({
+                ...form,
+                gender: newGender,
+                groupKey: defaultKey,
+                weight: "",
+              });
+            }}
           >
             <option value="M">Ұлдар (Boys)</option>
             <option value="F">Қыздар (Girls)</option>
           </select>
         </div>
 
-        <div className="input-group">
-          <label>Туған жылы</label>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Жас санаты (Группа)</label>
           <select
-            className="styled-input"
-            value={form.year}
+            style={styles.input}
+            value={form.groupKey}
             onChange={(e) =>
-              setForm({ ...form, year: e.target.value, weight: "" })
+              setForm({ ...form, groupKey: e.target.value, weight: "" })
             }
           >
-            {[2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019].map((y) => (
-              <option key={y} value={y}>
-                {y}
+            {Object.keys(
+              form.gender === "F" ? JUDO_RULES.FEMALE : JUDO_RULES.MALE
+            ).map((key) => (
+              <option key={key} value={key}>
+                {key}
               </option>
             ))}
           </select>
         </div>
 
-        <div className="input-group">
-          <label>Клуб</label>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Клуб</label>
           <input
-            className="styled-input"
+            style={styles.input}
             value={form.club}
             onChange={(e) => setForm({ ...form, club: e.target.value })}
+            placeholder="Клуб атауы"
             required
           />
         </div>
 
-        <div className="input-group">
-          <label>Салмақ</label>
+        <div style={styles.inputGroup}>
+          <label style={styles.label}>Салмақ дәрежесі</label>
           <select
-            className="styled-input"
+            style={styles.input}
             value={form.weight}
             onChange={(e) => setForm({ ...form, weight: e.target.value })}
             required
           >
             <option value="">Таңдаңыз...</option>
             {availableWeights.map((w) => (
-              <option key={w} value={w}>
-                {w.includes("+") ? w : `${w} кг`}
+              <option key={w.value} value={w.value}>
+                {w.label}
               </option>
             ))}
           </select>
         </div>
 
-        <div className="input-group">
-          <button type="submit" className="submit-btn">
-            ТІРКЕУ
-          </button>
-        </div>
+        <button type="submit" style={styles.submitBtn}>
+          ➕ ТІРКЕУ
+        </button>
       </form>
     </div>
   );
+};
+
+const styles = {
+  card: {
+    background: "#fff",
+    padding: "20px",
+    borderRadius: "10px",
+    border: "1px solid #ddd",
+    boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
+  },
+  formGrid: { display: "flex", flexDirection: "column", gap: "12px" },
+  inputGroup: { display: "flex", flexDirection: "column", gap: "4px" },
+  label: { fontSize: "13px", fontWeight: "bold", color: "#444" },
+  input: {
+    padding: "12px",
+    borderRadius: "6px",
+    border: "1px solid #ccc",
+    fontSize: "15px",
+    outline: "none",
+  },
+  submitBtn: {
+    marginTop: "10px",
+    padding: "14px",
+    background: "#0055a4",
+    color: "#fff",
+    border: "none",
+    borderRadius: "6px",
+    fontWeight: "bold",
+    cursor: "pointer",
+    fontSize: "16px",
+  },
 };
 
 export default ParticipantForm;

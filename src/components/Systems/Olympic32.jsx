@@ -1,358 +1,362 @@
-import React, { useMemo, useEffect } from "react";
-import MatchBox from "../Shared/MatchBox";
-import OfficialResults from "../Shared/OfficialResults";
+import React, { useMemo } from "react";
 import { generateDraw } from "../Utils/DrawLogic";
 
-const Olympic32 = ({ participants, category, results, setResults }) => {
+const Olympic32 = ({ participants = [], category, ageGroup }) => {
   const size = 32;
+
+  // 1. Жеребьевка
   const seededSlots = useMemo(
     () => generateDraw(participants, size),
     [participants]
   );
 
-  const handleWin = (matchId, winner, loser) => {
-    if (!winner || !matchId) return;
-    setResults((prev) => ({
-      ...prev,
-      [matchId]: winner,
-      [`${matchId}_loser`]: loser,
-    }));
-  };
+  const participantsCount = participants.filter(
+    (p) => p && (p.name || p.id)
+  ).length;
 
-  useEffect(() => {
-    const autoPicks = {};
-    for (let i = 0; i < 16; i++) {
-      const matchId = `r1-${i}`;
-      if (!results[matchId]) {
-        const p1 = seededSlots[i * 2];
-        const p2 = seededSlots[i * 2 + 1];
-        if (p1 && !p2) {
-          autoPicks[matchId] = p1;
-          autoPicks[`${matchId}_loser`] = null;
-        } else if (!p1 && p2) {
-          autoPicks[matchId] = p2;
-          autoPicks[`${matchId}_loser`] = null;
-        }
-      }
-    }
-
-    if (Object.keys(autoPicks).length) {
-      setResults((prev) => ({ ...prev, ...autoPicks }));
-    }
-  }, [results, seededSlots, setResults]);
-
-  // --- ГЕОМЕТРИЯ (A4 ЖИНАҚЫ) ---
-  const CANVAS_W = 1300;
-  const CENTER_X = CANVAS_W / 2;
-  const BOX_W = 145;
-  const BOX_H = 34;
-  const START_Y = 40;
-  const POOL_GAP = 15;
+  // ГЕОМЕТРИЯ - 32 адамға арналған (Өте тығыз)
+  const CANVAS_W = 1250;
+  const CANVAS_H = 850; // Биіктігі 32 жолға жететіндей
+  const BOX_W = 150; // Бокс ені (ықшам)
+  const BOX_H = 34; // Бокс биіктігі (38 -> 34 кішірейтілді)
+  const START_X = 10;
+  const GAP_Y = 18; // Жолдар арасы өте тығыз
 
   const mainBrackets = useMemo(() => {
     let matchNum = 1;
-    let r1 = [];
 
-    // --- 1-АЙНАЛЫМ ---
+    // --- 1-АЙНАЛЫМ (1/16 Final) - 16 matches ---
+    let r1 = [];
     for (let i = 0; i < 16; i++) {
-      const isRight = i >= 8;
-      const x = isRight ? CANVAS_W - BOX_W - 20 : 20;
-      const poolOffset = (Math.floor(i / 4) % 2) * POOL_GAP;
+      let currentPool = "";
+      if (i < 4) currentPool = "A";
+      else if (i < 8) currentPool = "B";
+      else if (i < 12) currentPool = "C";
+      else currentPool = "D";
+
+      // Пул әрпін әр топтың ортасында көрсету
+      const showPool = i % 4 === 1 ? currentPool : null;
+
       r1.push({
         id: `r1-${i}`,
         num: matchNum++,
-        x,
-        y: START_Y + (i % 8) * BOX_H * 2.1 + poolOffset,
+        x: START_X,
+        y: 20 + i * (BOX_H + GAP_Y),
         p1: seededSlots[i * 2],
         p2: seededSlots[i * 2 + 1],
-        side: isRight ? "right" : "left",
+        pool: showPool,
       });
     }
 
-    let data = [r1];
-
-    // --- ҚАЛҒАН АЙНАЛЫМДАР ---
-    for (let r = 1; r <= 4; r++) {
-      let prev = data[r - 1],
-        next = [];
-      for (let i = 0; i < prev.length; i += 2) {
-        const isRight = prev[i].side === "right";
-
-        let x;
-        if (r === 4) {
-          x = CENTER_X - BOX_W / 2; // Финал
-        } else if (r === 3) {
-          const semiGap = 110;
-          x = isRight
-            ? CENTER_X + BOX_W / 2 + semiGap
-            : CENTER_X - BOX_W / 2 - BOX_W - semiGap;
-        } else {
-          const gap = 55;
-          const xOffset = (BOX_W + gap) * r;
-          x = isRight ? CANVAS_W - BOX_W - 20 - xOffset : 20 + xOffset;
-        }
-
-        next.push({
-          id: `r${r + 1}-${i / 2}`,
-          num: matchNum++,
-          x,
-          y: (prev[i].y + prev[i + 1].y) / 2,
-          p1: results[prev[i].id] || null,
-          p2: results[prev[i + 1].id] || null,
-          isFinal: r === 4,
-          side: prev[i].side,
-        });
-      }
-      data.push(next);
+    // --- 2-АЙНАЛЫМ (1/8 Final) ---
+    let r2 = [];
+    for (let i = 0; i < 8; i++) {
+      r2.push({
+        id: `r2-${i}`,
+        num: matchNum++,
+        x: START_X + 190,
+        y: (r1[i * 2].y + r1[i * 2 + 1].y) / 2,
+      });
     }
-    return data;
-  }, [results, seededSlots, CANVAS_W]);
 
-  const repechageBrackets = useMemo(() => {
-    const qf = mainBrackets[2] || [],
-      sf = mainBrackets[3] || [];
-    const repY = 700;
-    const spacing = 160;
+    // --- 3-АЙНАЛЫМ (1/4 Final) ---
+    let r3 = [];
+    for (let i = 0; i < 4; i++) {
+      r3.push({
+        id: `r3-${i}`,
+        num: matchNum++,
+        x: START_X + 380,
+        y: (r2[i * 2].y + r2[i * 2 + 1].y) / 2,
+      });
+    }
 
-    return [
+    // --- 4-АЙНАЛЫМ (Semi Final) ---
+    let r4 = [];
+    for (let i = 0; i < 2; i++) {
+      r4.push({
+        id: `r4-${i}`,
+        num: matchNum++,
+        x: START_X + 570,
+        y: (r3[i * 2].y + r3[i * 2 + 1].y) / 2,
+      });
+    }
+
+    // --- 5-АЙНАЛЫМ (Final) ---
+    const r5 = [
       {
-        id: "rep-1",
-        label: "ЖҰБАНЫШ 1",
-        sub: "(A және B тобынан жеңілгендер)",
-        p1: results[`${qf[0]?.id}_loser`],
-        p2: results[`${qf[1]?.id}_loser`],
-        x: CENTER_X - BOX_W - spacing,
-        y: repY,
-      },
-      {
-        id: "rep-2",
-        label: "ЖҰБАНЫШ 2",
-        sub: "(C және D тобынан жеңілгендер)",
-        p1: results[`${qf[2]?.id}_loser`],
-        p2: results[`${qf[3]?.id}_loser`],
-        x: CENTER_X + spacing,
-        y: repY,
-      },
-      {
-        id: "bronze-1",
-        label: "ҚОЛА ҮШІН",
-        sub: "Жұбаныш 1 жеңімпазы vs Жартылай финал 2 жеңілгені",
-        p1: results["rep-1"],
-        p2: results[`${sf[1]?.id}_loser`],
-        x: CENTER_X - BOX_W - spacing,
-        y: repY + 90,
-      },
-      {
-        id: "bronze-2",
-        label: "ҚОЛА ҮШІН",
-        sub: "Жұбаныш 2 жеңімпазы vs Жартылай финал 1 жеңілгені",
-        p1: results["rep-2"],
-        p2: results[`${sf[0]?.id}_loser`],
-        x: CENTER_X + spacing,
-        y: repY + 90,
+        id: "r5-0",
+        num: matchNum++,
+        x: START_X + 760,
+        y: (r4[0].y + r4[1].y) / 2,
       },
     ];
-  }, [mainBrackets, results, CENTER_X]);
 
-  const finalMatch = mainBrackets[4]?.[0];
-  const podium = [
-    finalMatch && results[finalMatch.id]
-      ? { pos: 1, p: results[finalMatch.id] }
-      : null,
-    finalMatch && results[`${finalMatch.id}_loser`]
-      ? { pos: 2, p: results[`${finalMatch.id}_loser`] }
-      : null,
-    results["bronze-1"] ? { pos: 3, p: results["bronze-1"] } : null,
-    results["bronze-2"] ? { pos: 3, p: results["bronze-2"] } : null,
-  ].filter(Boolean);
+    return [r1, r2, r3, r4, r5];
+  }, [seededSlots]);
+
+  // --- MODERN BOX (32-ге арналған ықшам нұсқа) ---
+  const ModernBox = ({ x, y, p1, p2, num, pool }) => (
+    <g>
+      {/* Пул аты */}
+      {pool && (
+        <text
+          x={x - 12}
+          y={y + 80}
+          fontSize="40"
+          fontWeight="1000"
+          fill="#ccc"
+          opacity="0.4"
+        >
+          {pool}
+        </text>
+      )}
+
+      {/* Рамка */}
+      <rect
+        x={x}
+        y={y}
+        width={BOX_W}
+        height={BOX_H}
+        fill="none"
+        stroke="#000"
+        strokeWidth="1.2"
+      />
+      <line
+        x1={x}
+        y1={y + BOX_H / 2}
+        x2={x + BOX_W}
+        y2={y + BOX_H / 2}
+        stroke="#000"
+        strokeWidth="1"
+      />
+
+      {/* СПОРТШЫ 1 */}
+      {p1 && (
+        <>
+          <text x={x + 4} y={y + 11} fontSize="8" fontWeight="1000">
+            {p1.name.toUpperCase().slice(0, 18)}
+          </text>
+          <text x={x + 4} y={y + 16} fontSize="6" fontWeight="bold" fill="#555">
+            {p1.club ? p1.club.toUpperCase().slice(0, 18) : ""}
+          </text>
+        </>
+      )}
+
+      {/* СПОРТШЫ 2 */}
+      {p2 && (
+        <>
+          <text x={x + 4} y={y + 28} fontSize="8" fontWeight="1000">
+            {p2.name.toUpperCase().slice(0, 18)}
+          </text>
+          <text x={x + 4} y={y + 33} fontSize="6" fontWeight="bold" fill="#555">
+            {p2.club ? p2.club.toUpperCase().slice(0, 18) : ""}
+          </text>
+        </>
+      )}
+
+      {/* Нөмір */}
+      <circle cx={x + BOX_W + 8} cy={y + BOX_H / 2} r="7" fill="#000" />
+      <text
+        x={x + BOX_W + 8}
+        y={y + BOX_H / 2 + 3}
+        textAnchor="middle"
+        fontSize="8"
+        fill="#fff"
+        fontWeight="bold"
+      >
+        {num}
+      </text>
+    </g>
+  );
 
   return (
-    <div style={{ background: "#fff", padding: "0" }}>
-      <svg width="100%" height="100%" viewBox={`0 0 ${CANVAS_W} 850`}>
-        {/* --- НЕГІЗГІ ТОР --- */}
-        {mainBrackets.map((round, rIdx) =>
-          round.map((m, mIdx) => {
-            const next = mainBrackets[rIdx + 1]
-              ? mainBrackets[rIdx + 1][Math.floor(mIdx / 2)]
-              : null;
-
-            // --- ҚАЗАҚША ТАҚЫРЫПТАР ---
-            let title = "";
-            let color = "#333";
-
-            if (rIdx === 1) {
-              title = "1/8 ФИНАЛ";
-              color = "#666";
-            }
-            if (rIdx === 2) {
-              title = `${String.fromCharCode(65 + mIdx)} ТОБЫНЫҢ ФИНАЛЫ`;
-              color = "#0055a4";
-            }
-            if (rIdx === 3) {
-              title =
-                m.side === "left" ? "ЖАРТЫЛАЙ ФИНАЛ 1" : "ЖАРТЫЛАЙ ФИНАЛ 2";
-              color = "#d32f2f";
-            }
-            // ТЕК "ФИНАЛ" ДЕГЕН СӨЗ
-            if (rIdx === 4) {
-              title = "ФИНАЛ";
-              color = "#d32f2f";
-            }
-
-            // --- СЫЗЫҚТАР ---
-            let startX, endX, midX;
-            if (next) {
-              if (m.side === "left") {
-                startX = m.x + BOX_W;
-                endX = next.x;
-              } else {
-                startX = m.x;
-                endX = next.x + BOX_W;
-              }
-              midX = (startX + endX) / 2;
-            }
-
-            return (
-              <g key={m.id}>
-                {/* ТАҚЫРЫП (Тура ұяшықтың үстінде) */}
-                {title && (
-                  <text
-                    x={m.side === "left" ? m.x : m.x + BOX_W}
-                    y={m.y - 12}
-                    fontSize="9"
-                    fontWeight="900"
-                    fill={color}
-                    textAnchor={m.side === "left" ? "start" : "end"}
-                    style={{ textTransform: "uppercase" }}
-                  >
-                    {title}
-                  </text>
-                )}
-
-                {/* МАТЧ НӨМІРІ */}
-                <text
-                  x={m.side === "left" ? m.x : m.x + BOX_W}
-                  y={m.y - 3}
-                  fontSize="8"
-                  fill="#aaa"
-                  textAnchor={m.side === "left" ? "start" : "end"}
-                >
-                  #{m.num}
-                </text>
-
-                <MatchBox
-                  x={m.x}
-                  y={m.y}
-                  w={BOX_W}
-                  p1={m.p1}
-                  p2={m.p2}
-                  matchId={m.id}
-                  results={results}
-                  onWin={handleWin}
-                />
-
-                {/* ЕСКЕРТУЛЕР */}
-                {rIdx === 2 && (
-                  <text
-                    x={m.x + BOX_W / 2}
-                    y={m.y + 48}
-                    textAnchor="middle"
-                    fontSize="7"
-                    fill="#d32f2f"
-                    fontWeight="bold"
-                  >
-                    ↓ Жұбанышқа
-                  </text>
-                )}
-                {rIdx === 3 && (
-                  <text
-                    x={m.x + BOX_W / 2}
-                    y={m.y + 48}
-                    textAnchor="middle"
-                    fontSize="7"
-                    fill="#d32f2f"
-                    fontWeight="bold"
-                  >
-                    ↓ Қолаға
-                  </text>
-                )}
-
-                {/* СЫЗЫҚТАР */}
-                {next && !m.isFinal && (
-                  <path
-                    d={`M ${startX} ${m.y} H ${midX} V ${next.y} H ${endX}`}
-                    stroke="#000"
-                    strokeWidth="1.5"
-                    fill="none"
-                  />
-                )}
-              </g>
-            );
-          })
-        )}
-
-        {/* --- ЖҰБАНЫШ ЖӘНЕ ҚОЛА --- */}
-        <g>
-          <line
-            x1="20"
-            y1="680"
-            x2={CANVAS_W - 20}
-            y2="680"
-            stroke="#ccc"
-            strokeWidth="2"
-            strokeDasharray="6,4"
-          />
-          <text
-            x={CENTER_X}
-            y={695}
-            textAnchor="middle"
-            fontSize="14"
-            fontWeight="bold"
+    <div
+      id="print-area"
+      style={{
+        background: "#fff",
+        width: "297mm",
+        height: "210mm",
+        padding: "5mm",
+        margin: "0 auto",
+        fontFamily: "'Arial Black', sans-serif",
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* HEADER */}
+      <div
+        style={{
+          borderBottom: "3px solid #000",
+          paddingBottom: "4px",
+          marginBottom: "5px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <div>
+          <h1 style={{ fontSize: "22px", fontWeight: "1000", margin: 0 }}>
+            JUDOSHY BALAQAI LIGASY
+          </h1>
+          <div style={{ fontSize: "10px", fontWeight: "1000" }}>
+            РЕСМИ ТОР ХАТТАМАСЫ (32 ҚАТЫСУШЫ)
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div
+            style={{ fontSize: "18px", fontWeight: "1000", color: "#d32f2f" }}
           >
-            ЖҰБАНЫШ БЕЛДЕСУЛЕРІ ЖӘНЕ ҚОЛА
-          </text>
+            {category} ({ageGroup})
+          </div>
+          <div style={{ fontSize: "10px", fontWeight: "1000" }}>
+            ҚАТЫСУШЫ САНЫ: {participantsCount}
+          </div>
+        </div>
+      </div>
 
-          {repechageBrackets.map((m) => (
-            <g key={m.id}>
-              <text
-                x={m.x}
-                y={m.y - 12}
-                fontSize="9"
-                fontWeight="bold"
-                fill="#000"
-              >
-                {m.label}
-              </text>
-              <text x={m.x} y={m.y - 2} fontSize="7" fill="#555">
-                {m.sub}
-              </text>
-              <MatchBox
-                x={m.x}
-                y={m.y}
-                w={BOX_W}
-                p1={m.p1}
-                p2={m.p2}
-                matchId={m.id}
-                results={results}
-                onWin={handleWin}
-              />
-              {m.id.startsWith("bronze") && results[m.id] && (
-                <text x={m.x + BOX_W + 5} y={m.y + 10} fontSize="24">
-                  🥉
+      <div style={{ flexGrow: 1 }}>
+        <svg width="100%" height="100%" viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`}>
+          {mainBrackets.map((round, rIdx) =>
+            round.map((m, mIdx) => {
+              const next = mainBrackets[rIdx + 1]
+                ? mainBrackets[rIdx + 1][Math.floor(mIdx / 2)]
+                : null;
+              return (
+                <g key={m.id}>
+                  <ModernBox
+                    x={m.x}
+                    y={m.y}
+                    p1={m.p1}
+                    p2={m.p2}
+                    num={m.num}
+                    pool={rIdx === 0 ? m.pool : null}
+                  />
+                  {next && (
+                    <path
+                      d={`M ${m.x + BOX_W + 15} ${m.y + BOX_H / 2} 
+                          H ${next.x - 15} 
+                          V ${next.y + (mIdx % 2 === 0 ? 8 : BOX_H - 8)} 
+                          H ${next.x}`}
+                      stroke="#000"
+                      fill="none"
+                      strokeWidth="1"
+                    />
+                  )}
+                </g>
+              );
+            })
+          )}
+
+          {/* === ОРНАЛАСУДЫ ӨЗГЕРТТІМ === */}
+
+          {/* 1. НӘТИЖЕЛЕР БЛОГЫ (Жоғарғы Оң жақ - Top Right) */}
+          <g transform="translate(930, 20)">
+            <rect
+              width="280"
+              height="140"
+              fill="none"
+              stroke="#000"
+              strokeWidth="3"
+            />
+            <text
+              x="140"
+              y="25"
+              textAnchor="middle"
+              fontSize="14"
+              fontWeight="1000"
+            >
+              НӘТИЖЕЛЕР
+            </text>
+            {[1, 2, 3, 3].map((pos, i) => (
+              <g key={i} transform={`translate(10, ${50 + i * 22})`}>
+                <text fontSize="10" fontWeight="1000">
+                  {pos}-ОРЫН:
                 </text>
-              )}
-            </g>
-          ))}
-        </g>
+                <line
+                  x1="50"
+                  y1="0"
+                  x2="260"
+                  y2="0"
+                  stroke="#000"
+                  strokeWidth="1"
+                />
+              </g>
+            ))}
+          </g>
 
-        {/* АЛТЫН */}
-        {mainBrackets[4][0] && results[mainBrackets[4][0].id] && (
-          <text x={CENTER_X - 15} y={mainBrackets[4][0].y - 45} fontSize="35">
-            🥇
-          </text>
-        )}
-      </svg>
-      <OfficialResults podium={podium} />
+          {/* 2. ЖҰБАНЫШ ЖӘНЕ ҚОЛА (Төменгі Оң жақ - Bottom Right) */}
+          <g transform="translate(600, 700)">
+            {/* Бөлгіш сызық */}
+            <line
+              x1="-600"
+              y1="-10"
+              x2="650"
+              y2="-10"
+              stroke="#000"
+              strokeWidth="2"
+              strokeDasharray="5,5"
+            />
+
+            <text
+              x="0"
+              y="5"
+              fontSize="12"
+              fontWeight="1000"
+              textDecoration="underline"
+              fill="#d32f2f"
+            >
+              ЖҰБАНЫШ БЕЛДЕСУЛЕРІ (REPECHAGE)
+            </text>
+
+            {/* 4 Блок */}
+            {[
+              { l: "ЖҰБАНЫШ A-B", x: 0, y: 15 },
+              { l: "ЖҰБАНЫШ C-D", x: 0, y: 60 },
+              { l: "ҚОЛА ҮШІН (1)", x: 220, y: 15 },
+              { l: "ҚОЛА ҮШІН (2)", x: 220, y: 60 },
+            ].map((r, i) => (
+              <g key={i} transform={`translate(${r.x}, ${r.y})`}>
+                <text x="0" y="-3" fontSize="8" fontWeight="bold">
+                  {r.l}
+                </text>
+                <rect
+                  width="180"
+                  height="30"
+                  fill="none"
+                  stroke="#000"
+                  strokeWidth="1"
+                />
+                <line
+                  x1="0"
+                  y1="15"
+                  x2="180"
+                  y2="15"
+                  stroke="#000"
+                  strokeWidth="1"
+                />
+              </g>
+            ))}
+          </g>
+        </svg>
+      </div>
+
+      <div
+        style={{
+          marginTop: "auto",
+          borderTop: "3px solid #000",
+          paddingTop: "5px",
+          display: "flex",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ fontSize: "12px", fontWeight: "1000" }}>
+          БАС ТӨРЕШІ: __________________________
+        </div>
+        <div style={{ fontSize: "12px", fontWeight: "1000" }}>
+          БАС ХАТШЫ: __________________________
+        </div>
+      </div>
     </div>
   );
 };
