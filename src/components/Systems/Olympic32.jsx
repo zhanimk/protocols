@@ -20,16 +20,26 @@ const Olympic32 = ({ participants, category, results, setResults }) => {
   };
 
   useEffect(() => {
+    const autoPicks = {};
     for (let i = 0; i < 16; i++) {
       const matchId = `r1-${i}`;
       if (!results[matchId]) {
-        const p1 = seededSlots[i * 2],
-          p2 = seededSlots[i * 2 + 1];
-        if (p1 && !p2) handleWin(matchId, p1, null);
-        else if (!p1 && p2) handleWin(matchId, p2, null);
+        const p1 = seededSlots[i * 2];
+        const p2 = seededSlots[i * 2 + 1];
+        if (p1 && !p2) {
+          autoPicks[matchId] = p1;
+          autoPicks[`${matchId}_loser`] = null;
+        } else if (!p1 && p2) {
+          autoPicks[matchId] = p2;
+          autoPicks[`${matchId}_loser`] = null;
+        }
       }
     }
-  }, [seededSlots]);
+
+    if (Object.keys(autoPicks).length) {
+      setResults((prev) => ({ ...prev, ...autoPicks }));
+    }
+  }, [results, seededSlots, setResults]);
 
   // --- ГЕОМЕТРИЯ (A4 ЖИНАҚЫ) ---
   const CANVAS_W = 1300;
@@ -143,6 +153,18 @@ const Olympic32 = ({ participants, category, results, setResults }) => {
       },
     ];
   }, [mainBrackets, results, CENTER_X]);
+
+  const finalMatch = mainBrackets[4]?.[0];
+  const podium = [
+    finalMatch && results[finalMatch.id]
+      ? { pos: 1, p: results[finalMatch.id] }
+      : null,
+    finalMatch && results[`${finalMatch.id}_loser`]
+      ? { pos: 2, p: results[`${finalMatch.id}_loser`] }
+      : null,
+    results["bronze-1"] ? { pos: 3, p: results["bronze-1"] } : null,
+    results["bronze-2"] ? { pos: 3, p: results["bronze-2"] } : null,
+  ].filter(Boolean);
 
   return (
     <div style={{ background: "#fff", padding: "0" }}>
@@ -330,7 +352,7 @@ const Olympic32 = ({ participants, category, results, setResults }) => {
           </text>
         )}
       </svg>
-      <OfficialResults podium={[]} />
+      <OfficialResults podium={podium} />
     </div>
   );
 };

@@ -1,59 +1,50 @@
 import React, { useState, useEffect } from "react";
-// FIREBASE ИМПОРТТАРЫ
 import { db } from "./firebase";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 
-// КОМПОНЕНТТЕР
 import ParticipantForm from "./components/ParticipantForm";
 import ParticipantList from "./components/ParticipantList";
 import TournamentManager from "./components/Brackets/TournamentManager";
-import "./styles.css"; // Осы жол міндетті түрде болуы керек
-// PDF ЛОГИКАСЫ
-import { exportToPDF } from "./components/Utils/PdfExport";
+import "./styles.css";
+import { exportMultiPDF } from "./components/Utils/PdfExport";
 
 const App = () => {
-  // --- 1. STATE (ДЕРЕКТЕР) ---
-  const [list, setList] = useState([]); // Барлық қатысушылар
-  const [activeTab, setActiveTab] = useState(0); // Қай салмақ ашық тұр (индекс)
-  const [showRegistration, setShowRegistration] = useState(false); // Тіркеуді көрсету/жасыру
+  const [list, setList] = useState([]);
+  const [activeTab, setActiveTab] = useState(0);
+  const [showRegistration, setShowRegistration] = useState(false);
 
-  // --- 2. FIREBASE-ТЕН ЖҮКТЕУ ---
   useEffect(() => {
     if (!db) return;
-    const q = query(
-      collection(db, "competitors"),
-      orderBy("createdAt", "desc")
-    );
 
-    // Real-time listener
+    const q = query(collection(db, "competitors"), orderBy("createdAt", "desc"));
     const unsub = onSnapshot(q, (snapshot) => {
       setList(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
+
     return unsub;
   }, []);
 
-  // --- 3. ДЕРЕКТЕРДІ ӨҢДЕУ ---
-  // Уникалды категорияларды алып, сорттаймыз
-  const categories = [...new Set(list.map((p) => p.weightCat))].sort();
+  const categories = [...new Set(list.map((p) => p.weightCat))].filter(Boolean).sort();
 
-  // Қазіргі таңдалып тұрған категорияның қатысушылары
+  useEffect(() => {
+    if (activeTab > categories.length - 1) {
+      setActiveTab(0);
+    }
+  }, [activeTab, categories.length]);
+
   const activeParticipants =
     categories.length > 0
       ? list.filter((p) => p.weightCat === categories[activeTab])
       : [];
 
-  // --- 4. БАРЛЫҚ ХАТТАМАЛАРДЫ ЖҮКТЕУ ---
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     if (categories.length === 0) return alert("Деректер жоқ!");
 
-    if (
-      window.confirm(`Барлығы ${categories.length} категорияны жүктейсіз бе?`)
-    ) {
-      // Жасырын div-тердің ID-лерін жинаймыз
+    if (window.confirm(`Барлығы ${categories.length} категорияны жүктейсіз бе?`)) {
       const elements = categories.map((cat) => ({
         id: `hidden-print-${cat}`,
       }));
-      exportMultiPDF(elements, "All_Protocols_2026.pdf");
+      await exportMultiPDF(elements, "All_Protocols_2026.pdf");
     }
   };
 
@@ -65,7 +56,6 @@ const App = () => {
         minHeight: "100vh",
       }}
     >
-      {/* --- HEADER (ULTRA MODERN & PREMIUM) --- */}
       <header className="header-card">
         <div className="header-brand">
           <div className="live-tag">
@@ -88,7 +78,7 @@ const App = () => {
           </button>
         </div>
       </header>
-      {/* --- ТІРКЕУ БӨЛІМІ (Жасырын/Ашық) --- */}
+
       {showRegistration && (
         <div style={styles.registrationArea}>
           <div
@@ -112,7 +102,6 @@ const App = () => {
         </div>
       )}
 
-      {/* --- TABS (КАТЕГОРИЯЛАР) --- */}
       <div style={styles.tabsContainer}>
         {categories.length > 0 ? (
           categories.map((cat, index) => (
@@ -123,8 +112,7 @@ const App = () => {
                 ...styles.tabBtn,
                 background: activeTab === index ? "#0055a4" : "#e0e0e0",
                 color: activeTab === index ? "#fff" : "#333",
-                borderBottom:
-                  activeTab === index ? "4px solid #003366" : "none",
+                borderBottom: activeTab === index ? "4px solid #003366" : "none",
               }}
             >
               {cat}
@@ -133,9 +121,7 @@ const App = () => {
                   marginLeft: "8px",
                   fontSize: "11px",
                   background:
-                    activeTab === index
-                      ? "rgba(255,255,255,0.3)"
-                      : "rgba(0,0,0,0.1)",
+                    activeTab === index ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.1)",
                   padding: "2px 6px",
                   borderRadius: "10px",
                 }}
@@ -151,37 +137,27 @@ const App = () => {
         )}
       </div>
 
-      {/* --- MAIN CONTENT (АКТИВТІ СЕТКА) --- */}
       <div style={{ padding: "20px" }}>
         {categories.length > 0 ? (
           <TournamentManager
-            key={categories[activeTab]} // Key өзгерсе, компонент жаңарады
+            key={categories[activeTab]}
             participants={activeParticipants}
             category={categories[activeTab]}
           />
         ) : (
           <div style={styles.emptyState}>
             <h3>Турнир әлі басталмады</h3>
-            <p>
-              Жоғарыдағы "Қатысушылар & Тіркеу" батырмасын басып, адамдарды
-              қосыңыз.
-            </p>
+            <p>Жоғарыдағы "Қатысушылар & Тіркеу" батырмасын басып, адамдарды қосыңыз.</p>
           </div>
         )}
       </div>
 
-      {/* --- ЖАСЫРЫН АЙМАҚ (HIDDEN PRINT AREA) --- */}
       <div style={styles.hiddenPrintArea}>
         {categories.map((cat) => {
-          // Әр категория үшін адамдарды сүзіп аламыз
           const pList = list.filter((p) => p.weightCat === cat);
           return (
             <div key={cat} id={`hidden-print-${cat}`}>
-              <TournamentManager
-                participants={pList}
-                category={cat}
-                isPrintMode={true} // Батырмаларды жасыру үшін
-              />
+              <TournamentManager participants={pList} category={cat} isPrintMode={true} />
             </div>
           );
         })}
@@ -190,37 +166,7 @@ const App = () => {
   );
 };
 
-// --- СТИЛЬДЕР (CSS-in-JS) ---
 const styles = {
-  topBar: {
-    background: "#222",
-    color: "#fff",
-    padding: "15px 30px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
-  },
-  downloadAllBtn: {
-    background: "#d32f2f",
-    color: "#fff",
-    border: "none",
-    padding: "10px 20px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    borderRadius: "5px",
-    fontSize: "14px",
-    textTransform: "uppercase",
-  },
-  secondaryBtn: {
-    background: "#444",
-    color: "#fff",
-    border: "1px solid #666",
-    padding: "10px 15px",
-    cursor: "pointer",
-    borderRadius: "5px",
-    fontSize: "13px",
-  },
   registrationArea: {
     background: "#fff",
     padding: "20px",
@@ -259,7 +205,7 @@ const styles = {
     position: "absolute",
     left: "-10000px",
     top: 0,
-    width: "1400px", // Фикс ені, html2canvas дұрыс түсіру үшін
+    width: "1400px",
   },
 };
 

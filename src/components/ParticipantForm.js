@@ -1,20 +1,19 @@
-import React, { useState, useMemo } from "react";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { JUDO_RULES, getJudoCategory } from "../rules";
+import React, { useMemo, useState } from "react";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { getJudoCategory, getRulesByGender } from "../rules";
 
 const ParticipantForm = ({ db }) => {
   const [form, setForm] = useState({
     name: "",
     club: "",
-    gender: "M", // M - ұлдар, F - қыздар
+    gender: "M",
     year: "2013",
     weight: "",
   });
 
-  // Жынысы мен жылына қарай салмақтарды сүзу
   const availableWeights = useMemo(() => {
-    const y = parseInt(form.year);
-    const rules = form.gender === "F" ? JUDO_RULES.FEMALE : JUDO_RULES.MALE;
+    const rules = getRulesByGender(form.gender);
+    const y = parseInt(form.year, 10);
 
     let group = null;
     for (const key in rules) {

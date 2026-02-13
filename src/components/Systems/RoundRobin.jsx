@@ -36,7 +36,6 @@ const RoundRobin = ({ participants = [], category, ageGroup }) => {
 
   return (
     <div
-      id="print-area"
       style={{
         background: "#fff",
         color: "#000",
@@ -302,7 +301,7 @@ const RoundRobin = ({ participants = [], category, ageGroup }) => {
                   {pair[0]}
                 </div>
                 <div style={{ fontWeight: "1000", fontSize: "11px" }}>
-                  {participants[pair[0] - 1]?.name.split(" ")[0].toUpperCase()}
+                  {participants[pair[0] - 1]?.name?.split(" ")[0]?.toUpperCase() || ""}
                 </div>
               </div>
               <div
@@ -340,7 +339,7 @@ const RoundRobin = ({ participants = [], category, ageGroup }) => {
                   {pair[1]}
                 </div>
                 <div style={{ fontWeight: "1000", fontSize: "11px" }}>
-                  {participants[pair[1] - 1]?.name.split(" ")[0].toUpperCase()}
+                  {participants[pair[1] - 1]?.name?.split(" ")[0]?.toUpperCase() || ""}
                 </div>
               </div>
               <div

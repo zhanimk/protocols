@@ -1,4 +1,4 @@
-export const JUDO_RULES = {
+const BASE_MALE_RULES = {
   "2011-2012": {
     label: "Младшие юноши (2011-2012)",
     weights: [38, 42, 46, 50, 55, 60, 66, 73],
@@ -16,33 +16,72 @@ export const JUDO_RULES = {
   },
 };
 
-export const getJudoCategory = (year, weight) => {
-  const y = parseInt(year);
+const BASE_FEMALE_RULES = {
+  "2011-2012": {
+    label: "Девушки (2011-2012)",
+    weights: [36, 40, 44, 48, 52, 57, 63],
+    plus: "63+",
+  },
+  "2013-2014": {
+    label: "Девочки (2013-2014)",
+    weights: [30, 33, 36, 40, 44, 48, 52, 57],
+    plus: "57+",
+  },
+  "2015-2016": {
+    label: "Девочки секция (2015-2016)",
+    weights: [24, 27, 30, 33, 36, 40, 44, 48],
+    plus: "48+",
+  },
+};
 
-  // 1. Жыл бойынша топты табамыз
-  const groupKey = Object.keys(JUDO_RULES).find((key) => {
+export const JUDO_RULES = {
+  MALE: BASE_MALE_RULES,
+  FEMALE: BASE_FEMALE_RULES,
+};
+
+export const getRulesByGender = (gender = "M") =>
+  gender === "F" ? JUDO_RULES.FEMALE : JUDO_RULES.MALE;
+
+const findGroupKey = (rules, year) => {
+  const y = parseInt(year, 10);
+  return Object.keys(rules).find((key) => {
     const [start, end] = key.split("-").map(Number);
     return y >= start && y <= end;
   });
+};
+
+// Backward compatible:
+// getJudoCategory(year, weight)
+// getJudoCategory(gender, year, weight)
+export const getJudoCategory = (arg1, arg2, arg3) => {
+  let gender = "M";
+  let year = arg1;
+  let weight = arg2;
+
+  if (arg3 !== undefined) {
+    gender = arg1;
+    year = arg2;
+    weight = arg3;
+  }
+
+  const rules = getRulesByGender(gender);
+  const groupKey = findGroupKey(rules, year);
 
   if (!groupKey) {
     return { group: "Вне зачета", weightCat: "N/A" };
   }
 
-  const rule = JUDO_RULES[groupKey];
+  const rule = rules[groupKey];
 
-  // 2. Егер "73+" деген сияқты плюс таңдалса
   if (String(weight).includes("+")) {
-    const categoryFull = `${rule.plus} (${groupKey})`;
-    return { group: rule.label, weightCat: categoryFull };
+    return {
+      group: rule.label,
+      weightCat: `${rule.plus} (${groupKey})`,
+    };
   }
-
-  // 3. Қалыпты салмақ таңдалса (Мысалы: 38)
-  // Тізімнен таңдағандықтан, дәл сол категорияны береміз
-  const categoryFull = `-${weight}кг (${groupKey})`;
 
   return {
     group: rule.label,
-    weightCat: categoryFull,
+    weightCat: `-${weight}кг (${groupKey})`,
   };
 };
